@@ -1,5 +1,7 @@
 #![allow(unused_parens)]
 
+use ::rand::thread_rng;
+use ::rand::seq::SliceRandom;
 use egui::Slider;
 use macroquad::prelude::*;
 
@@ -22,6 +24,7 @@ async fn main() {
 
     let mut pin_amount: u8 = 6;
     let mut bitting: Vec<u8> = generate_bitting(pin_amount);
+    let mut tension_values: Vec<u8> = generate_tension_values(pin_amount); // TODO
 
     loop {
         // ui
@@ -36,16 +39,15 @@ async fn main() {
                     });
                     ui.horizontal(|ui| {
                         ui.label("Bitting:");
-                        let string = bitting
-                            .as_slice()
-                            .into_iter()
-                            .map(|number| number.to_string())
-                            .collect::<Vec<String>>()
-                            .join(", ");
-                        ui.code(format!("[{string}]"));
+                        ui.code(vec_to_string(&bitting));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Tension values:");
+                        ui.code(vec_to_string(&tension_values));
                     });
                     if ui.button("Reroll bitting").clicked() {
                         bitting = generate_bitting(pin_amount);
+                        tension_values = generate_tension_values(pin_amount);
                     }
                 }
             );
@@ -93,33 +95,58 @@ async fn main() {
 
         // keyway
         draw_rectangle(
-            (screen_width()/2.0) - pin_amount as f32 * 2.0 * pin_width,
+            (screen_width()/2.0) - (pin_amount as f32 * 2.0 * pin_width) - (pin_width / 8.0),
             (screen_height()/2.0) + pin_height,
-            pin_amount as f32 * 2.0 * pin_width,
+            (pin_amount as f32 * 2.0 * pin_width) + (pin_width / 8.0),
             pin_height,
             DARKGRAY,
         );
 
         // pins
         for i in 1..=pin_amount {
-            // plug cavity
+            // plug pin cavity
             draw_rectangle(
-                (screen_width()/2.0) - (i as f32 * 2.0 * pin_width),
+                (screen_width()/2.0) - (i as f32 * 2.0 * pin_width) - (pin_width / 8.0),
                 (screen_height()/2.0),
-                pin_width,
+                pin_width + (pin_width / 4.0),
                 pin_height,
                 DARKGRAY,
             );
 
-            // body cavity
+            // body pin cavity
             draw_rectangle(
-                (screen_width()/2.0) - (i as f32 * 2.0 * pin_width),
+                (screen_width()/2.0) - (i as f32 * 2.0 * pin_width) - (pin_width / 8.0),
                 (screen_height()/2.0) - (pin_height*1.5),
-                pin_width,
+                pin_width + (pin_width / 4.0),
                 pin_height + pin_height*1.5,
                 DARKGRAY,
             );
+
+            // key + driver pin
+            draw_key_driver_pins(
+                (screen_width()/2.0) - (i as f32 * 2.0 * pin_width),
+                (screen_height()/2.0) + pin_height * 1.5,
+                pin_width,
+                pin_height,
+                bitting[i as usize - 1],
+            );
         }
+
+        // tension tool
+        draw_rectangle(
+            (screen_width()/2.0) - pin_width * 2.0,
+            (screen_height()/2.0) + plug_height - pin_width,
+            pin_width * 3.0,
+            pin_width,
+            LIGHTGRAY,
+        );
+        draw_rectangle(
+            (screen_width()/2.0) + pin_width / 8.0,
+            (screen_height()/2.0) + plug_height - pin_width,
+            pin_width,
+            screen_height(), // infinite
+            LIGHTGRAY,
+        );
 
         egui_macroquad::draw();
 
@@ -128,12 +155,91 @@ async fn main() {
     }
 }
 
+fn vec_to_string<T: std::fmt::Display>(vector: &Vec<T>) -> String {
+    let string = vector
+        .as_slice()
+        .into_iter()
+        .map(|number| number.to_string())
+        .collect::<Vec<String>>()
+        .join(", ");
+    format!("[{string}]")
+}
+
 fn generate_bitting(pin_amount: u8) -> Vec<u8> {
     let mut bitting = Vec::with_capacity(pin_amount as usize);
     for _ in 0..pin_amount {
         bitting.push(
-            rand::gen_range(1u8, 10u8)
+            rand::gen_range(0u8, 10u8)
         );
     }
     bitting
+}
+
+fn generate_tension_values(pin_amount: u8) -> Vec<u8> {
+    let mut tension_values: Vec<u8> = (0..pin_amount).collect();
+    tension_values.shuffle(&mut thread_rng());
+    tension_values
+}
+
+fn draw_spring(x: f32, y: f32, w: f32, h:f32, coils: u8, thickness: f32, color: Color) {
+    let coil_height: f32 = h / coils as f32;
+    for i in (0..coils).step_by(2) {
+        draw_line(
+            x,
+            y + (i as f32 * coil_height),
+            x + w,
+            y + ((i + 1) as f32 * coil_height),
+            thickness,
+            color,
+        );
+    }
+    for i in (1..coils).step_by(2) {
+        draw_line(
+            x,
+            y + ((i + 1) as f32 * coil_height),
+            x + w,
+            y + (i as f32 * coil_height),
+            thickness,
+            color,
+        );
+    }
+}
+
+fn draw_key_driver_pins(x: f32, low_y: f32, w: f32, driver_h:f32, pin_bitting: u8) {
+    let key_pin_height = (driver_h * 0.5) + (driver_h * 0.05 * pin_bitting as f32);
+    
+    // spring
+    draw_spring(
+        x,
+        (screen_height()/2.0) - (driver_h*1.5),
+        w,
+        (low_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h) - ((screen_height()/2.0) - (driver_h*1.5)),
+        9,
+        w/8.0,
+        LIGHTGRAY,
+    );
+
+    // driver pin
+    draw_rectangle(
+        x,
+        low_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h,
+        w,
+        driver_h,
+        LIGHTGRAY,
+    );
+
+    // key pin
+    draw_rectangle(
+        x,
+        low_y - (w/2.0) - key_pin_height,
+        w,
+        key_pin_height,
+        LIGHTGRAY,
+    );
+    draw_triangle(
+        Vec2{x: x           , y: low_y - (w/2.0)},
+        Vec2{x: x + w       , y: low_y - (w/2.0)},
+        Vec2{x: x + (w/2.0) , y: low_y},
+        LIGHTGRAY,
+    );
 }
