@@ -27,10 +27,19 @@ async fn main() {
     // }
 
     // TODO:
-    //  fix multiple pins rendering and hotboxing wrong
+    //  fix multiple pins rendering and hotboxing wrong at low screen width values
+    //  separate pin rendering in order to render set pins (or add set argument)
     //  make global lockpick thickness
     //  make tensioning tool as thick as lockpick
-    //  disable starting position or prebake a better one
+
+    // WODO:
+    //  add closest available position extrapolation for smooth operation
+    //      this would require major physics engine things and rubberbanding of
+    //      the actual object position to the supposed position. nuh-uh.
+    //  make pick get stuck on pins so you have to avoid them
+    //      requires approaching the pin from a certain direction, might be easier
+    //      than it seems but one'd have to track position in previous frame
+    //      or some more complex hitboxes. probably nah.
 
     let mut pin_amount: u8 = 6;
     let mut bitting: Vec<u8> = generate_bitting(pin_amount);

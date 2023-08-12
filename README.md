@@ -1,7 +1,9 @@
 # Lockpicking simulator
 
-This project is to demonstrate a few interesting ideas when it comes to
-representing lockpicking in videogames.
+A different approach to representing the lockpicking minigame.
+
+May not be playable at all resolutions/screen sizes,
+resize your browser window if need be.
 
 
 (2 "_required_" `.js` files from `egui-macroquad` -> 
