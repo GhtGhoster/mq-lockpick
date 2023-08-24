@@ -177,6 +177,7 @@ async fn main() {
                 .default_open(false)
                 .anchor(egui::Align2::RIGHT_TOP, egui::Vec2::new(0.0, 0.0))
                 .show(egui_ctx, |ui| {
+                    ui.label("Mouse to play, R to reset.");
                     ui.horizontal(|ui| {
                         ui.label("Pin amount:");
                         if ui.add(Slider::new(&mut pin_amount, 1u8..=10u8)).changed() {

@@ -5,6 +5,24 @@ A different approach to representing the lockpicking minigame.
 May not be playable at all resolutions/screen sizes,
 resize your browser window if need be.
 
+As this tiny project draws to its conclusion, I realize a few things.
+For one, my code formatting is pretty garbage when I don't plan ahead.
+That aside though, this minigame is nowhere near as fun as I'd thought.
+The inclusion of lockpicking sounds effects might be able to mitigate
+that problem at least a little bit but serious thought should be given to
+how to entertain the player more effectively, how to actually allow the
+player to amass skill etc. A few ideas in that regard:
+- Inclusion of other lockpicking methods such as lishi tools, comb picks etc.
+- Inclusion of trickier locks with spool, schroom and other pins
+- Variety of locks with different driver pin arangements
+- (In the context of a full game) the ability to drill the lock
+
+To conclude, however, I'm happy with this project nontheless.
+It wasn't supposed to be the most thrilling minigame you've ever played,
+even though I'd have liked it to end up that way. It should mainly serve
+as a presentation and perhaps inspiration to me and anyone who might be
+interested.
+
 
 (2 "_required_" `.js` files from `egui-macroquad` -> 
 [`quad-url`](https://github.com/optozorax/quad-url)
