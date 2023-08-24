@@ -27,10 +27,14 @@ async fn main() {
     // }
 
     // TODO:
-    //  fix multiple pins rendering and hotboxing wrong at low screen width values
+    //  fix multiple pins rendering and hitboxing wrong at low screen width values
     //  separate pin rendering in order to render set pins (or add set argument)
     //  make global lockpick thickness
     //  make tensioning tool as thick as lockpick
+    //  render circle at the tip of pick as well
+    //  limit key pin y coord when set
+    //  maybe prevent lockpick tip (and other points) from going there as well
+    //  more accurate key pin tip hitboxes
 
     // WODO:
     //  add closest available position extrapolation for smooth operation
@@ -45,19 +49,29 @@ async fn main() {
     let mut bitting: Vec<u8> = generate_bitting(pin_amount);
     let mut tension_values: Vec<u8> = generate_tension_values(pin_amount); // TODO
     let mut pin_boxes: Vec<((f32, f32), (f32, f32))>;
+    let mut current_tension: u8 = 0;
 
     let mut mouse_box: ((f32, f32), (f32, f32));
     let mut keyway_box: ((f32, f32), (f32, f32));
 
     let mut last_mouse_x: f32 = screen_width() - (screen_height()/6.0);
     //yea idk, not worth my time to optimize
-    let mut last_mouse_y: f32 = (screen_height()/2.0) + (screen_height()/6.0) - (((((screen_height()/6.0)*2.0) + (screen_width() / 32f32.max(((pin_amount as f32 * 2.0) + 2.0) * 2.0))) * 2.0)/2.0) + ((screen_height()/6.0)*2.0) + ((screen_height()/6.0)/2.0);
+    let mut last_mouse_y: f32 =
+        (screen_height()/2.0) + (screen_height()/6.0) -
+        (((((screen_height()/6.0)*2.0) + (screen_width() / 32f32.max(((pin_amount as f32 * 2.0) + 2.0) * 2.0))) * 2.0)/2.0) +
+        ((screen_height()/6.0)*2.0) + ((screen_height()/6.0)/2.0);
 
     let mut last_lockpick_x: f32 = (screen_width()/2.0) - (screen_height()/6.0);
-    let mut last_lockpick_y: f32 = (screen_height()/2.0) + (screen_height()/6.0) - (((((screen_height()/6.0)*2.0) + (screen_width() / 32f32.max(((pin_amount as f32 * 2.0) + 2.0) * 2.0))) * 2.0)/2.0) + ((screen_height()/6.0)*2.0) + ((screen_height()/6.0)/2.0);
+    let mut last_lockpick_y: f32 =
+        (screen_height()/2.0) + (screen_height()/6.0) -
+        (((((screen_height()/6.0)*2.0) + (screen_width() / 32f32.max(((pin_amount as f32 * 2.0) + 2.0) * 2.0))) * 2.0)/2.0) +
+        ((screen_height()/6.0)*2.0) + ((screen_height()/6.0)/2.0);
 
     let mut last_lockpick_tip_x: f32 = (screen_width()/2.0) - (screen_height()/6.0);
-    let mut last_lockpick_tip_y: f32 = (screen_height()/2.0) + (screen_height()/6.0) - (((((screen_height()/6.0)*2.0) + (screen_width() / 32f32.max(((pin_amount as f32 * 2.0) + 2.0) * 2.0))) * 2.0)/2.0) + ((screen_height()/6.0)*2.0) + ((screen_height()/6.0)/2.0) - (screen_width()/32.0);
+    let mut last_lockpick_tip_y: f32 =
+        (screen_height()/2.0) + (screen_height()/6.0) -
+        (((((screen_height()/6.0)*2.0) + (screen_width() / 32f32.max(((pin_amount as f32 * 2.0) + 2.0) * 2.0))) * 2.0)/2.0) +
+        ((screen_height()/6.0)*2.0) + ((screen_height()/6.0)/2.0) - (screen_width()/32.0);
 
     let mut lockpick_length: f32;// = screen_width()/2.0;
 
@@ -150,15 +164,31 @@ async fn main() {
             }
         }
 
+        // keyboard input
+        if is_key_pressed(KeyCode::R) {
+            bitting = generate_bitting(pin_amount);
+            tension_values = generate_tension_values(pin_amount);
+            current_tension = 0;
+        }
 
         // ui
         egui_macroquad::ui(|egui_ctx| {
             egui::Window::new("Controls")
+                .default_open(false)
+                .anchor(egui::Align2::RIGHT_TOP, egui::Vec2::new(0.0, 0.0))
                 .show(egui_ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.label("Pin amount:");
                         if ui.add(Slider::new(&mut pin_amount, 1u8..=10u8)).changed() {
                             bitting = generate_bitting(pin_amount);
+                            tension_values = generate_tension_values(pin_amount);
+                            current_tension = 0;
+                        };
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Current tension:");
+                        if ui.add(Slider::new(&mut current_tension, 0u8..=pin_amount)).changed() {
+                            //bitting = generate_bitting(pin_amount);
                         };
                     });
                     ui.horizontal(|ui| {
@@ -172,6 +202,7 @@ async fn main() {
                     if ui.button("Reroll bitting").clicked() {
                         bitting = generate_bitting(pin_amount);
                         tension_values = generate_tension_values(pin_amount);
+                        current_tension = 0;
                     }
                 }
             );
@@ -229,14 +260,30 @@ async fn main() {
             );
 
             // key + driver pin
-            draw_key_driver_pins(
-                (screen_width()/2.0) - (i as f32 * 2.0 * pin_width),
-                (screen_height()/2.0) + pin_height - (body_height/2.0) + (pin_height*2.0) + (pin_height/2.0),
+            let x_pos = (screen_width()/2.0) - (i as f32 * 2.0 * pin_width);
+            let pickbar_height = if last_lockpick_x < x_pos {
+                last_mouse_y - (((last_mouse_x - (x_pos + (pin_width/2.0))) / (last_mouse_x - last_lockpick_x)) * (last_mouse_y - last_lockpick_y))
+            } else {
+                (screen_height()/2.0) + pin_height - (body_height/2.0) + (pin_height*2.0) + (pin_height/2.0)
+            };
+            let should_set = draw_key_driver_pins(
+                x_pos,
+                if last_lockpick_tip_x - (x_pos  - (pin_width / 8.0)) > 0.0 && last_lockpick_tip_x - (x_pos - (pin_width / 8.0)) < pin_width * 1.25 {
+                    ((screen_height()/2.0) + pin_height - (body_height/2.0) + (pin_height*2.0) + (pin_height/2.0)).min(last_lockpick_tip_y)
+                } else {
+                    //(screen_height()/2.0) + pin_height - (body_height/2.0) + (pin_height*2.0) + (pin_height/2.0)
+                    pickbar_height.min((screen_height()/2.0) + pin_height - (body_height/2.0) + (pin_height*2.0) + (pin_height/2.0))
+                },
                 (screen_height()/2.0) - (body_height/2.0) + pin_width - (pin_width/8.0),
                 pin_width,
                 pin_height,
                 bitting[i as usize - 1],
+                current_tension > tension_values[i as usize - 1]
             );
+
+            if should_set && tension_values[i as usize - 1] == current_tension {
+                current_tension += 1;
+            }
         }
 
         // tension tool
@@ -436,7 +483,7 @@ fn generate_bitting(pin_amount: u8) -> Vec<u8> {
     let mut bitting = Vec::with_capacity(pin_amount as usize);
     for _ in 0..pin_amount {
         bitting.push(
-            rand::gen_range(0u8, 10u8)
+            rand::gen_range(2u8, 10u8)
         );
     }
     bitting
@@ -501,15 +548,26 @@ fn draw_spring(x: f32, y: f32, w: f32, h:f32, coils: u8, thickness: f32, color: 
     }
 }
 
-fn draw_key_driver_pins(x: f32, bottom_y: f32, top_y: f32, w: f32, driver_h:f32, pin_bitting: u8) {
+fn draw_key_driver_pins(x: f32, bottom_y: f32, top_y: f32, w: f32, driver_h: f32, pin_bitting: u8, pin_is_set: bool) -> bool {
     let key_pin_height = (driver_h * 0.5) + (driver_h * 0.05 * pin_bitting as f32);
+
+    let should_set: bool = 
+        (
+            ((screen_height()/2.0) - (w/8.0) - ((((driver_h*2.0) + w) * 2.0)/2.0) + driver_h) -
+            (bottom_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h)
+        ).abs() < 2.0;
     
     // spring
     draw_spring(
         x,
         top_y,//(screen_height()/2.0) - (driver_h*1.5),
         w,
-        bottom_y - top_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h,//(bottom_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h) - ((screen_height()/2.0) - (driver_h*1.5)),
+        //(bottom_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h) - ((screen_height()/2.0) - (driver_h*1.5)),
+        if pin_is_set {
+            ((screen_height()/2.0) - (w/8.0) - ((((driver_h*2.0) + w) * 2.0)/2.0) + driver_h) - top_y
+        } else {
+            bottom_y - top_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h
+        },
         9,
         w/8.0,
         LIGHTGRAY,
@@ -518,10 +576,18 @@ fn draw_key_driver_pins(x: f32, bottom_y: f32, top_y: f32, w: f32, driver_h:f32,
     // driver pin
     draw_rectangle(
         x,
-        bottom_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h,
+        if pin_is_set {
+            (screen_height()/2.0) - (w/8.0) - ((((driver_h*2.0) + w) * 2.0)/2.0) + driver_h
+        } else {
+            bottom_y - (w/2.0) - key_pin_height - (w/8.0) - driver_h
+        },
         w,
         driver_h,
-        LIGHTGRAY,
+        if pin_is_set {
+            Color::new(0.64, 0.64, 0.64, 1.0)
+        } else {
+            LIGHTGRAY
+        },
     );
 
     // key pin
@@ -530,12 +596,22 @@ fn draw_key_driver_pins(x: f32, bottom_y: f32, top_y: f32, w: f32, driver_h:f32,
         bottom_y - (w/2.0) - key_pin_height,
         w,
         key_pin_height,
-        LIGHTGRAY,
+        if should_set {
+            GREEN
+        } else {
+            LIGHTGRAY
+        },
     );
     draw_triangle(
         Vec2{x: x           , y: bottom_y - (w/2.0)},
         Vec2{x: x + w       , y: bottom_y - (w/2.0)},
         Vec2{x: x + (w/2.0) , y: bottom_y},
-        LIGHTGRAY,
+        if should_set {
+            GREEN
+        } else {
+            LIGHTGRAY
+        },
     );
+
+    should_set
 }
