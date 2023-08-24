@@ -16,6 +16,7 @@ player to amass skill etc. A few ideas in that regard:
 - Inclusion of trickier locks with spool, schroom and other pins
 - Variety of locks with different driver pin arangements
 - (In the context of a full game) the ability to drill the lock
+- Improvement of the mouse controls themselves
 
 To conclude, however, I'm happy with this project nontheless.
 It wasn't supposed to be the most thrilling minigame you've ever played,
